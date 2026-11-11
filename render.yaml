@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: statum-stk-push-bot
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: STATUM_API_URL
+        value: https://api.statum.co.ke/api/v2/stk-push
+      - key: STATUM_CONSUMER_KEY
+        sync: false
+      - key: STATUM_CONSUMER_SECRET
+        sync: false
+      - key: STATUM_PAYBILL_ACCOUNT_CODE
+        sync: false
