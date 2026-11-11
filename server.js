@@ -28,19 +28,21 @@ async function processQueue() {
   try {
     const authHeader = Buffer.from(`${CONSUMER_KEY}:${CONSUMER_SECRET}`).toString('base64');
 
-    const payload = {
+    const params = {
       phone_number: task.phoneNumber,
       amount: task.amount,
       account_reference: PAYBILL_ACCOUNT || task.accountReference,
       transaction_desc: task.description || 'Statum Wallet Top-Up',
     };
 
-    console.log(`[${new Date().toISOString()}] Sending STK Push to ${task.phoneNumber} for KES ${task.amount}...`);
+    console.log(`[${new Date().toISOString()}] Sending GET STK Push to ${task.phoneNumber} for KES ${task.amount}...`);
 
-    const response = await axios.post(STATUM_API_URL, payload, {
+    // Changed from axios.post to axios.get with query parameters
+    const response = await axios.get(STATUM_API_URL, {
+      params,
       headers: {
         'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
     });
 
