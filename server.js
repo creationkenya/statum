@@ -8,7 +8,11 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
-const STATUM_API_URL = process.env.STATUM_API_URL || 'https://api.statum.co.ke/api/v2/stk-push';
+// Base URL components following the https://api.statum.co.ke/api/v2/{command} pattern
+const API_BASE = 'https://api.statum.co.ke/api/v2';
+const API_COMMAND = process.env.STATUM_API_COMMAND || 'stk-push';
+const STATUM_API_URL = `${API_BASE}/${API_COMMAND}`;
+
 const CONSUMER_KEY = process.env.STATUM_CONSUMER_KEY;
 const CONSUMER_SECRET = process.env.STATUM_CONSUMER_SECRET;
 const PAYBILL_ACCOUNT = process.env.STATUM_PAYBILL_ACCOUNT_CODE;
@@ -28,20 +32,19 @@ async function processQueue() {
   try {
     const authHeader = Buffer.from(`${CONSUMER_KEY}:${CONSUMER_SECRET}`).toString('base64');
 
-    const params = {
+    const payload = {
       phone_number: task.phoneNumber,
       amount: task.amount,
       account_reference: PAYBILL_ACCOUNT || task.accountReference,
       transaction_desc: task.description || 'Statum Wallet Top-Up',
     };
 
-    console.log(`[${new Date().toISOString()}] Sending GET STK Push to ${task.phoneNumber} for KES ${task.amount}...`);
+    console.log(`[${new Date().toISOString()}] Sending POST request to ${STATUM_API_URL} for ${task.phoneNumber}...`);
 
-    // Changed from axios.post to axios.get with query parameters
-    const response = await axios.get(STATUM_API_URL, {
-      params,
+    const response = await axios.post(STATUM_API_URL, payload, {
       headers: {
         'Authorization': `Basic ${authHeader}`,
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
     });
@@ -49,7 +52,7 @@ async function processQueue() {
     console.log(`[SUCCESS] Response:`, response.data);
     task.resolve({ status: 'success', data: response.data });
   } catch (error) {
-    console.error(`[ERROR] STK Push failed:`, error.response?.data || error.message);
+    console.error(`[ERROR] Request failed to ${STATUM_API_URL}:`, error.response?.data || error.message);
     task.reject(error.response?.data || { message: error.message });
   } finally {
     console.log(`Waiting 8 seconds before processing the next request...`);
@@ -61,7 +64,7 @@ async function processQueue() {
 
 // Health check endpoint for UptimeRobot / Render
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', queueLength: queue.length, isProcessing });
+  res.status(200).json({ status: 'ok', queueLength: queue.length, isProcessing, activeCommand: STATUM_API_URL });
 });
 
 // Single STK Push endpoint
@@ -102,11 +105,11 @@ app.post('/batch-stk-push', (req, res) => {
   processQueue();
 
   res.status(202).json({
-    message: `Enqueued ${requests.length} STK push requests. Processing sequentially with 8-second intervals.`,
+    message: `Enqueued ${requests.length} requests targeting command '${API_COMMAND}'. Processing with 8-second intervals.`,
     queueLength: queue.length,
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT} | Target Command Endpoint: ${STATUM_API_URL}`);
 });
